@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 WORKDIR /app
 
-# Install required packages
+# Update package lists and install required packages
 RUN apt-get update && \
     apt-get install -y \
     sudo \
@@ -12,4 +12,17 @@ RUN apt-get update && \
     make \
     isal \
     uuid-dev \
-    git
+    git \
+    wget \
+    gnupg \
+    clang-format \
+    clang \
+    lld \
+    cppcheck
+
+# Add additional commands if needed
+
+# Define target stage if you are doing a multi-stage build
+# Example:
+# FROM base_image as stage_name
+# COPY --from=previous_stage /path/to/copy/from /path/to/copy/to

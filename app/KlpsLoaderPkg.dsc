@@ -1,9 +1,9 @@
 [Defines]
-  PLATFORM_NAME                  = KlpsPkg
+  PLATFORM_NAME                  = KlpsLoaderPkg
   PLATFORM_GUID                  = 75dd174f-907b-4f8f-8afa-f0029d98ed5a
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
-  OUTPUT_DIRECTORY               = Build/KlpsPkg$(ARCH)
+  OUTPUT_DIRECTORY               = Build/KlpsLoaderPkg$(ARCH)
   SUPPORTED_ARCHITECTURES        = IA32|X64
   BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
 
@@ -33,4 +33,4 @@
   RegisterFilterLib|MdePkg/Library/RegisterFilterLibNull/RegisterFilterLibNull.inf
 
 [Components]
-  KlpsPkg/applications/src/main.inf
+  KlpsLoaderPkg/applications/src/main.inf
