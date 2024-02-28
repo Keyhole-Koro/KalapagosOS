@@ -1,2 +1,2 @@
-disk.img
-edk2/*
+*.o
+*.elf
