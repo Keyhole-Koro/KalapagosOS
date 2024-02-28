@@ -10,10 +10,11 @@
 #include  <Protocol/DiskIo2.h>
 #include  <Protocol/BlockIo.h>
 #include  <Guid/FileInfo.h>
+#include <stdio.h>
 
 struct MemoryMap {
   UINTN buffer_size;
-  VOID* buffer;
+  VOID *buffer;
   UINTN map_size;
   UINTN map_key;
   UINTN descriptor_size;
@@ -46,10 +47,27 @@ const CHAR16  *GetMemoryTypeUnicode(EFI_MEMORY_TYPE type) {
   }
 }
 
-EFI_STATUS OpenRootDir(EFI_HANDLE image_handle, EFI_FILE_PROTOCOL** root) {
+const CHAR16* GetPixelFormatUnicode(EFI_GRAPHICS_PIXEL_FORMAT fmt) {
+  switch (fmt) {
+    case PixelRedGreenBlueReserved8BitPerColor:
+      return L"PixelRedGreenBlueReserved8BitPerColor";
+    case PixelBlueGreenRedReserved8BitPerColor:
+      return L"PixelBlueGreenRedReserved8BitPerColor";
+    case PixelBitMask:
+      return L"PixelBitMask";
+    case PixelBltOnly:
+      return L"PixelBltOnly";
+    case PixelFormatMax:
+      return L"PixelFormatMax";
+    default:
+      return L"InvalidPixelFormat";
+  }
+}
+
+EFI_STATUS OpenRootDir(EFI_HANDLE image_handle, EFI_FILE_PROTOCOL **root) {
   EFI_STATUS status;
-  EFI_LOADED_IMAGE_PROTOCOL* loaded_image;
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* fs;
+  EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fs;
 
   status = gBS->OpenProtocol(
       image_handle,
@@ -108,10 +126,10 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap *map, EFI_FILE_PROTOCOL *file) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS ReadFile(EFI_FILE_PROTOCOL* file, VOID** buffer) {
+EFI_STATUS ReadFile(EFI_FILE_PROTOCOL *file, VOID **buffer) {
   EFI_STATUS status;
 
-  UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
+  UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16)  *12;
   UINT8 file_info_buffer[file_info_size];
   status = file->GetInfo(
       file, &gEfiFileInfoGuid,
@@ -120,7 +138,7 @@ EFI_STATUS ReadFile(EFI_FILE_PROTOCOL* file, VOID** buffer) {
     return status;
   }
 
-  EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
+  EFI_FILE_INFO *file_info = (EFI_FILE_INFO*)file_info_buffer;
   UINTN file_size = file_info->FileSize;
 
   EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
@@ -141,6 +159,38 @@ EFI_STATUS ReadFile(EFI_FILE_PROTOCOL* file, VOID** buffer) {
   return EFI_SUCCESS;
 }
 
+EFI_STATUS OpenGOP(EFI_HANDLE image_handle,
+                   EFI_GRAPHICS_OUTPUT_PROTOCOL** gop) {
+  EFI_STATUS status;
+  UINTN num_gop_handles = 0;
+  EFI_HANDLE* gop_handles = NULL;
+
+  status = gBS->LocateHandleBuffer(
+      ByProtocol,
+      &gEfiGraphicsOutputProtocolGuid,
+      NULL,
+      &num_gop_handles,
+      &gop_handles);
+  if (EFI_ERROR(status)) {
+    return status;
+  }
+
+  status = gBS->OpenProtocol(
+      gop_handles[0],
+      &gEfiGraphicsOutputProtocolGuid,
+      (VOID**)gop,
+      image_handle,
+      NULL,
+      EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+  if (EFI_ERROR(status)) {
+    return status;
+  }
+
+  gBS->FreePool(gop_handles);
+
+  return EFI_SUCCESS;
+}
+
 EFI_STATUS
 EFIAPI
 UefiMain (
@@ -151,7 +201,7 @@ UefiMain (
   EFI_STATUS status;
 
   Print(L"Hello EDK II !!!\n");
-  CHAR8 memmap_buf[4096 * 4];
+  CHAR8 memmap_buf[4096  *4];
   struct MemoryMap memmap = { sizeof(memmap_buf), memmap_buf, 0, 0, 0, 0};
   GetMemoryMap(&memmap);
 
@@ -179,7 +229,7 @@ UefiMain (
     }
   }
 
-  EFI_FILE_PROTOCOL* kernel_file;
+  EFI_FILE_PROTOCOL *kernel_file;
   status = root_dir->Open(
       root_dir, &kernel_file, L"\\kernel.elf",
       EFI_FILE_MODE_READ, 0);
@@ -188,12 +238,41 @@ UefiMain (
     Halt();
   }
 
-  VOID* kernel_buffer;
+  VOID *kernel_buffer;
   status = ReadFile(kernel_file, &kernel_buffer);
   if (EFI_ERROR(status)) {
     Print(L"error: %r\n", status);
     Halt();
   }
+
+  UINT64 kernel_first_addr = 0x100000;
+
+  //UINT64 entry_addr = *(UINT64*)(kernel_first_addr + 24);
+
+  Print(L"kernel_first_addr: 0x%0lx\n", kernel_first_addr);
+
+  EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
+  status = OpenGOP(image_handle, &gop);
+  if (EFI_ERROR(status)) {
+    Print(L"failed to open GOP: %r\n", status);
+    Halt();
+  }
+
+  Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
+      gop->Mode->Info->HorizontalResolution,
+      gop->Mode->Info->VerticalResolution,
+      GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
+      gop->Mode->Info->PixelsPerScanLine);
+  Print(L"Frame Buffer: 0x%0lx - 0x%0lx, Size: %lu bytes\n",
+      gop->Mode->FrameBufferBase,
+      gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
+      gop->Mode->FrameBufferSize);
+
+  typedef void EntryPointType(UINT64, UINT64);
+  EntryPointType *entry_point = (EntryPointType*)kernel_first_addr;
+  entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
+
+  Print(L"Successfully done\n");
 
   while (1);
   return EFI_SUCCESS;
