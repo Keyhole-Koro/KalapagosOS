@@ -12,6 +12,8 @@
 #include  <Guid/FileInfo.h>
 #include <stdio.h>
 
+#include "elf.h"
+
 struct MemoryMap {
   UINTN buffer_size;
   VOID *buffer;
@@ -129,7 +131,7 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap *map, EFI_FILE_PROTOCOL *file) {
 EFI_STATUS ReadFile(EFI_FILE_PROTOCOL *file, VOID **buffer) {
   EFI_STATUS status;
 
-  UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16)  *12;
+  UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
   UINT8 file_info_buffer[file_info_size];
   status = file->GetInfo(
       file, &gEfiFileInfoGuid,
@@ -137,24 +139,20 @@ EFI_STATUS ReadFile(EFI_FILE_PROTOCOL *file, VOID **buffer) {
   if (EFI_ERROR(status)) {
     return status;
   }
-
-  EFI_FILE_INFO *file_info = (EFI_FILE_INFO*)file_info_buffer;
+  EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
   UINTN file_size = file_info->FileSize;
-
-  EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
-  status = gBS->AllocatePages(
-    AllocateAddress, EfiLoaderData,
-    (file_size + 0xfff) / 0x1000, &kernel_base_addr);
+  
+  status = gBS->AllocatePool(EfiLoaderData, file_size, buffer);
   if (EFI_ERROR(status)) {
     return status;
   }
 
-  status = file->Read(file, &file_size, (VOID*)kernel_base_addr);
+  UINTN size = file_size;
+  status = file->Read(file, &size, *buffer);
   if (EFI_ERROR(status)) {
+    gBS->FreePool(*buffer);
     return status;
   }
-
-  *buffer = (VOID*)kernel_base_addr;
 
   return EFI_SUCCESS;
 }
@@ -191,6 +189,44 @@ EFI_STATUS OpenGOP(EFI_HANDLE image_handle,
   return EFI_SUCCESS;
 }
 
+EFI_PHYSICAL_ADDRESS GetElfEntryPoint(VOID *ElfBuffer) {
+    typedef struct {
+        UINT8 ident[16];
+        UINT16 type;
+        UINT16 machine;
+        UINT32 version;
+        UINT64 entry_point;
+    } ELF_HEADER;
+
+    ELF_HEADER *Header = (ELF_HEADER *)ElfBuffer;
+
+    return (EFI_PHYSICAL_ADDRESS)Header->entry_point;
+}
+
+void CalcLoadAddressRange(Elf64_Ehdr* ehdr, UINT64* first, UINT64* last) {
+  Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+  *first = MAX_UINT64;
+  *last = 0;
+  for (Elf64_Half i = 0; i < ehdr->e_phnum; ++i) {
+    if (phdr[i].p_type != PT_LOAD) continue;
+    *first = MIN(*first, phdr[i].p_vaddr);
+    *last = MAX(*last, phdr[i].p_vaddr + phdr[i].p_memsz);
+  }
+}
+
+void CopyLoadSegments(Elf64_Ehdr* ehdr) {
+  Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+  for (Elf64_Half i = 0; i < ehdr->e_phnum; ++i) {
+    if (phdr[i].p_type != PT_LOAD) continue;
+
+    UINT64 segm_in_file = (UINT64)ehdr + phdr[i].p_offset;
+    CopyMem((VOID*)phdr[i].p_vaddr, (VOID*)segm_in_file, phdr[i].p_filesz);
+
+    UINTN remain_bytes = phdr[i].p_memsz - phdr[i].p_filesz;
+    SetMem((VOID*)(phdr[i].p_vaddr + phdr[i].p_filesz), remain_bytes, 0);
+  }
+}
+
 EFI_STATUS
 EFIAPI
 UefiMain (
@@ -200,7 +236,8 @@ UefiMain (
 {
   EFI_STATUS status;
 
-  Print(L"Hello EDK II !!!\n");
+  Print(L"Hello Kalapagos OS\n");
+
   CHAR8 memmap_buf[4096  *4];
   struct MemoryMap memmap = { sizeof(memmap_buf), memmap_buf, 0, 0, 0, 0};
   GetMemoryMap(&memmap);
@@ -234,8 +271,8 @@ UefiMain (
       root_dir, &kernel_file, L"\\kernel.elf",
       EFI_FILE_MODE_READ, 0);
   if (EFI_ERROR(status)) {
-    Print(L"failed to open file '\\kernel.elf': %r\n", status);
-    Halt();
+      Print(L"failed to open file '\\kernel.elf': %r\n", status);
+      Halt();
   }
 
   VOID *kernel_buffer;
@@ -245,11 +282,26 @@ UefiMain (
     Halt();
   }
 
-  UINT64 kernel_first_addr = 0x100000;
+  Elf64_Ehdr* kernel_ehdr = (Elf64_Ehdr*)kernel_buffer;
+  UINT64 kernel_first_addr, kernel_last_addr;
+  CalcLoadAddressRange(kernel_ehdr, &kernel_first_addr, &kernel_last_addr);
 
-  //UINT64 entry_addr = *(UINT64*)(kernel_first_addr + 24);
+  UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
+  status = gBS->AllocatePages(AllocateAddress, EfiLoaderData,
+                              num_pages, &kernel_first_addr);
+  if (EFI_ERROR(status)) {
+    Print(L"failed to allocate pages: %r\n", status);
+    Halt();
+  }
 
-  Print(L"kernel_first_addr: 0x%0lx\n", kernel_first_addr);
+  CopyLoadSegments(kernel_ehdr);
+  Print(L"Kernel: 0x%0lx - 0x%0lx\n", kernel_first_addr, kernel_last_addr);
+
+  status = gBS->FreePool(kernel_buffer);
+  if (EFI_ERROR(status)) {
+    Print(L"failed to free pool: %r\n", status);
+    Halt();
+  }
 
   EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
   status = OpenGOP(image_handle, &gop);
@@ -268,11 +320,10 @@ UefiMain (
       gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
       gop->Mode->FrameBufferSize);
 
-  typedef void EntryPointType(UINT64, UINT64);
-  EntryPointType *entry_point = (EntryPointType*)kernel_first_addr;
-  entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
+  EFI_PHYSICAL_ADDRESS EntryPoint = GetElfEntryPoint((VOID*)kernel_first_addr);
 
-  Print(L"Successfully done\n");
+  typedef void KernelEntry(UINT64, UINT64);
+  ((KernelEntry*)EntryPoint)(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
 
   while (1);
   return EFI_SUCCESS;

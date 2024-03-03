@@ -15,7 +15,7 @@ cp ../target.txt Conf/target.txt
 make -C /workspaces/KalapagosOS/edk2/BaseTools/Source/C
 
 # build pkg
-build 
+build
 
 # Don't forget to set TARGET in target.txt to KlpsLoaderPkg/KlpsLoaderPkg.dsc
 # OvmfPkg/OvmfPkgX64.dsc is for OVMF.fd

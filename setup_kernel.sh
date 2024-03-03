@@ -2,7 +2,8 @@
 
 cd kernel
 
-clang++ -Ilibs -O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone \
+clang++ -Ilibs -nostdlibinc -D__ELF__ -D_LDBL_EQ_DBL -D_GNU_SOURCE -D_POSIX_TIMERS \
+-O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone \
 -fno-exceptions -fno-rtti -std=c++17 -c main.cpp
 
 ld.lld --entry KernelMain -z norelro --image-base 0x100000 --static \
