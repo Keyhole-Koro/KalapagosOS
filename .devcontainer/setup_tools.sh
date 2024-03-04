@@ -7,5 +7,4 @@ isal \
 uuid-dev \
 git \
 clang \
-lld \
-build-essential
+lld

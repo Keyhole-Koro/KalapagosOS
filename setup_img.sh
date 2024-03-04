@@ -1,5 +1,11 @@
 #!/bin/bash
 
+destination="app/applications/src"
+kernel="kernel"
+cp "${kernel}/elf.hpp" "${destination}/elf.hpp"
+cp "${kernel}/frame_buffer_config.hpp" "${destination}/frame_buffer_config.hpp"
+cp "${kernel}/memory_map.hpp" "${destination}/memory_map.hpp"
+
 cd edk2
 source edksetup.sh
 

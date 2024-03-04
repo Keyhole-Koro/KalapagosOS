@@ -12,16 +12,9 @@
 #include  <Guid/FileInfo.h>
 #include <stdio.h>
 
-#include "elf.h"
-
-struct MemoryMap {
-  UINTN buffer_size;
-  VOID *buffer;
-  UINTN map_size;
-  UINTN map_key;
-  UINTN descriptor_size;
-  UINT32 descriptor_version;
-};
+#include "elf.hpp"
+#include "frame_buffer_config.hpp"
+#include "memory_map.hpp"
 
 void Halt(void) {
   while (1) __asm__("hlt");
@@ -310,20 +303,29 @@ UefiMain (
     Halt();
   }
 
-  Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
-      gop->Mode->Info->HorizontalResolution,
-      gop->Mode->Info->VerticalResolution,
-      GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
-      gop->Mode->Info->PixelsPerScanLine);
-  Print(L"Frame Buffer: 0x%0lx - 0x%0lx, Size: %lu bytes\n",
-      gop->Mode->FrameBufferBase,
-      gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
-      gop->Mode->FrameBufferSize);
+  struct FrameBufferConfig config = {
+    (UINT8*)gop->Mode->FrameBufferBase,
+    gop->Mode->Info->PixelsPerScanLine,
+    gop->Mode->Info->HorizontalResolution,
+    gop->Mode->Info->VerticalResolution,
+    0
+  };
+  switch (gop->Mode->Info->PixelFormat) {
+    case PixelRedGreenBlueReserved8BitPerColor:
+      config.pixel_format = kPixelRGBResv8BitPerColor;
+      break;
+    case PixelBlueGreenRedReserved8BitPerColor:
+      config.pixel_format = kPixelBGRResv8BitPerColor;
+      break;
+    default:
+      Print(L"Unimplemented pixel format: %d\n", gop->Mode->Info->PixelFormat);
+      Halt();
+  }
 
   EFI_PHYSICAL_ADDRESS EntryPoint = GetElfEntryPoint((VOID*)kernel_first_addr);
 
-  typedef void KernelEntry(UINT64, UINT64);
-  ((KernelEntry*)EntryPoint)(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
+  typedef void KernelEntry(const struct FrameBufferConfig*);
+  ((KernelEntry*)EntryPoint)(&config);
 
   while (1);
   return EFI_SUCCESS;
