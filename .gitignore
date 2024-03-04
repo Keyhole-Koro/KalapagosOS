@@ -1,3 +1,5 @@
 *.o
 *.elf
 edk2/*
+!kernel/hankaku.o
+!kernel/hankaku.bin

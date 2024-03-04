@@ -2,6 +2,9 @@
     "files.associations": {
         "stdio.h": "c",
         "*.inc": "c",
-        "fileinfo.h": "c"
+        "fileinfo.h": "c",
+        "chrono": "cpp",
+        "variant": "cpp",
+        "rope": "cpp"
     }
 }
