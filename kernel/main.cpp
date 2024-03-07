@@ -3,6 +3,24 @@
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter *pixel_writer;
 
+char console_buf[sizeof(Console)];
+Console *console;
+
+int printk(const char *format, ...) {
+    va_list ap;
+    int result;
+    char s[1024];
+
+    va_start(ap, format);
+    result = vsprintf(s, format, ap);
+    va_end(ap);
+
+    // Assuming 'console' is a valid pointer to a Console object
+    console->PutString(s);
+    return result;
+}
+
+
 extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
     switch (frame_buffer_config.pixel_format) {
         case kPixelRGBResv8BitPerColor:
@@ -26,6 +44,7 @@ extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
         }
     }
 
-    WriteAscii(*pixel_writer, 50, 50, 'B', {0, 0, 0});
+    console = new(console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
+
     while (1) __asm__("hlt");
 }
