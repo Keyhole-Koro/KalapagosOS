@@ -21,6 +21,7 @@ int printk(const char *format, ...) {
 }
 
 
+
 extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
     switch (frame_buffer_config.pixel_format) {
         case kPixelRGBResv8BitPerColor:
@@ -46,5 +47,7 @@ extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
 
     console = new(console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
+    printk("Welcome\n");
+    
     while (1) __asm__("hlt");
 }
