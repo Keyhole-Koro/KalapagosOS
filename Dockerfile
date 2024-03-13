@@ -19,6 +19,7 @@ RUN apt-get update && \
     git \
     clang \
     lld \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the default shell to bash
