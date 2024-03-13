@@ -6,6 +6,20 @@ PixelWriter *pixel_writer;
 char console_buf[sizeof(Console)];
 Console *console;
 
+int printk(const char *format, ...) {
+    va_list ap;
+    int result;
+    char s[1024];
+
+    va_start(ap, format);
+    result = vsprintf(s, format, ap);
+    va_end(ap);
+
+    // Assuming 'console' is a valid pointer to a Console object
+    console->PutString(s);
+    return result;
+}
+
 
 
 extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
@@ -33,7 +47,17 @@ extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
 
     console = new(console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
+    printk("Welcome\n");
 
+    for (int dy = 0; dy < kMouseCursorHeight; ++dy) {
+        for (int dx = 0; dx < kMouseCursorWidth; ++dx) {
+            if (mouse_cursor_shape[dy][dx] == '@') {
+                pixel_writer->Write(200+dx, 100+dy, {0,0,0});
+            } else if (mouse_cursor_shape[dy][dx] == '.') {
+                pixel_writer->Write(200+dx, 100+dy, {255,255,255});
+            }
+        }
+    }
     
     while (1) __asm__("hlt");
 }
