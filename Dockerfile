@@ -19,6 +19,8 @@ RUN apt-get update && \
     git \
     clang \
     lld \
+    libc6-dev \
+    libstdc++-10-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
 

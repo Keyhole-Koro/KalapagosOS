@@ -6,14 +6,16 @@ PixelWriter *pixel_writer;
 char console_buf[sizeof(Console)];
 Console *console;
 
-void set_xmm_register(float value) {
-    // XMM00
-    asm volatile (
-        "movss %[value], %%xmm0"
-        :
-        : [value] "m" (value)
-        : "%xmm0"
-    );
+int printk(const char *format, ...) {
+    va_list ap;
+    int result;
+    char s[1024];
+    va_start(ap, format);
+    result = vsprintf(s, format, ap);
+    va_end(ap);
+    // Assuming 'console' is a valid pointer to a Console object
+    console->PutString(s);
+    return result;
 }
 
 extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
@@ -36,7 +38,7 @@ extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
 
     console = new(console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
-    console->PutString("welcome\n");
+    console->PutString("Welcome to console\n");
     
     while (1) __asm__("hlt");
 }
