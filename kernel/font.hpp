@@ -2,7 +2,7 @@
 
 #include "cstdint"
 
-#include "pixel_handler.hpp"
+#include "graphics.hpp"
 
 extern const uint8_t _binary_hankaku_bin_start;
 extern const uint8_t _binary_hankaku_bin_size;
