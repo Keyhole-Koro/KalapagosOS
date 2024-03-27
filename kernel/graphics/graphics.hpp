@@ -8,6 +8,18 @@ struct PixelColor {
     uint8_t r, g, b;
 };
 
+template <typename T>
+struct Vector2D {
+    T x, y;
+
+    template <typename U>
+    Vector2D<T> &operator += (const Vector2D<U> &rhs) {
+        x += rhs.x;
+        y += rhs.y;
+        return *this;
+    }
+};
+
 class PixelWriter {
     public:
         PixelWriter(const FrameBufferConfig &config) : config_{config} {
@@ -46,3 +58,25 @@ class BGRResv8BitPerColorPixelWriter : public PixelWriter {
         p[2] = c.r;
     }
 };
+
+void FillRectangle(PixelWriter &writer, const Vector2D<int> &pos,
+            const Vector2D<int> &size, const PixelColor &c) {
+    for (int dy = 0; dy < size.y; ++dy) {
+        for (int dx = 0; dx < size.x; ++dx) {
+            writer.Write(pos.x + dx, pos.y + dy, c);
+        }
+    }
+}
+
+void DrawRectangle(PixelWriter &writer, const Vector2D<int> &pos,
+            const Vector2D<int> &size, const PixelColor &c) {
+    for (int dx = 0; dx < size.x; ++dx) {
+        writer.Write(pos.x + dx, pos.y, c);
+        writer.Write(pos.x + dx, pos.y + size.y - 1, c);
+    }
+    for (int dy = 1; dy < size.y - 1; ++dy) {
+        writer.Write(pos.x, pos.y + dy, c);
+        writer.Write(pos.x + size.x - 1, pos.y + dy, c);
+    }
+    
+}
