@@ -14,10 +14,9 @@
 #include "./console/console.hpp"
 #include "./graphics/cursor.hpp"
 #include "./pci/pci.hpp"
-#include "interrupt.hpp"
+#include "./interrupt/interrupt.hpp"
 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter *pixel_writer;
 
 char console_buf[sizeof(Console)];
-extern Console *console;

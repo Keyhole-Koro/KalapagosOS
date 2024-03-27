@@ -40,18 +40,19 @@ extern "C" void KernelMain(const FrameBufferConfig &frame_buffer_config) {
         auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
     }
     */
-    /*
+    
     console->Show("before loop");
-
+    
     // タイマー割り込みの設定
+    
     setup_timer_interrupt();
-
+    
     // IDTの設定
     setup_idt();
-
+    
     // 割り込みを有効にする
     __asm__("sti");
-    */
+    
     // 無限ループで待機
     while (1) {}
 }

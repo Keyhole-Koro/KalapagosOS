@@ -1,9 +1,9 @@
+#pragma once
+
 #include <stdio.h>
 #include <stdint.h>
 
-#include "main.hpp" // just for debugging
-#include "./console/console.hpp"
-Console *console;
+#include "./debug/logger.hpp"
 
 void interrupt_handler();
 
