@@ -8,7 +8,7 @@ clang++ -I/usr/include -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu -I/
  -fno-exceptions -fno-rtti -std=c++17 -c main.cpp
 
 ld.lld --entry KernelMain -z norelro --image-base 0x100000 --static \
--o kernel.elf main.o hankaku.o
+-o kernel.elf main.o ./graphics/hankaku.o
 
 cd ..
 
